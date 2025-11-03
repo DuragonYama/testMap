@@ -1,0 +1,6 @@
+* {
+  overflow: hidden;
+}
+.container {
+  display: flex;
+}
