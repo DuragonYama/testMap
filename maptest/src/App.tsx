@@ -26,6 +26,7 @@ async function fetchRoute(
 }
 
 function App() {
+  const markers = useRef<maplibregl.Marker[]>([]);
   const mapContainer = useRef<HTMLDivElement | null>(null);
   const map = useRef<maplibregl.Map | null>(null);
 
@@ -63,6 +64,16 @@ function App() {
       zoom: 8,
     });
 
+    map.current.on("mousemove", (e) => {
+      const lng = e.lngLat.lng.toFixed(5);
+      const lat = e.lngLat.lat.toFixed(5);
+  
+      const coordBox = document.getElementById("coords");
+      if (coordBox) {
+        coordBox.innerHTML = `Longitude: <b>${lng}</b><br>Latitude: <b>${lat}</b>`;
+      }
+    });
+
     return () => {
       map.current?.remove();
       map.current = null;
@@ -71,12 +82,15 @@ function App() {
 
   async function drawRoute() {
     if (!map.current) return;
-
+  
     const start: [number, number] = [startLng, startLat];
     const end: [number, number] = [endLng, endLat];
-
+  
     const routeFeature = await fetchRoute(start, end);
 
+    markers.current.forEach(m => m.remove());
+    markers.current = [];
+  
     if (map.current.getSource("route")) {
       (map.current.getSource("route") as maplibregl.GeoJSONSource).setData(
         routeFeature
@@ -92,12 +106,27 @@ function App() {
       });
     }
 
-    new maplibregl.Marker({ color: "green" }).setLngLat(start).addTo(map.current);
-    new maplibregl.Marker({ color: "red" }).setLngLat(end).addTo(map.current);
+    const startMarker = new maplibregl.Marker({ color: "green" })
+      .setLngLat(start)
+      .addTo(map.current);
+  
+    const endMarker = new maplibregl.Marker({ color: "red" })
+      .setLngLat(end)
+      .addTo(map.current);
+  
+    markers.current.push(startMarker, endMarker);
 
-    const bounds = new maplibregl.LngLatBounds(start, end);
-    map.current.fitBounds(bounds, { padding: 50 });
+    const coords = routeFeature.geometry.coordinates;
+    const bounds = new maplibregl.LngLatBounds(coords[0] as [number, number], coords[0] as [number, number]);
+
+    for (const coord of coords) {
+      bounds.extend(coord as [number, number]);
+    }
+
+map.current.fitBounds(bounds, { padding: 50 });
+
   }
+  
 
   useEffect(() => {
     if (!map.current) return;
@@ -145,6 +174,11 @@ function App() {
           />
           <br /> <br />
           <button onClick={drawRoute}>Draw Route</button>
+          <br /> <br />
+          <div id="coords" style={{ padding: "8px", background: "#fff", fontSize: "14px" }}>
+            Beweeg over de kaart...
+          </div>
+
         </div>
 
         <div
